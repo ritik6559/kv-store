@@ -1,17 +1,24 @@
 package main
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"sort"
 )
 
+var ErrKeyDoesNotExist = errors.New("key does not exist")
+var ErrEmptyKey = errors.New("key is mandatory, min length is 1")
+
 type store struct {
-	data map[string]string
+	capacity int
+	data     map[string]string
 }
 
-func NewStore() *store {
+func NewStore(capacity int) *store {
 	return &store{
-		data: make(map[string]string),
+		capacity: capacity,
+		data:     make(map[string]string),
 	}
 }
 
@@ -27,17 +34,41 @@ func (s *store) Keys() []string {
 	return keys
 }
 
-func (s *store) Set(key, value string) {
-	s.data[key] = value
+func (s *store) SetKeyWithEncryption(key, val string) (string, error) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(val))
+	if err := s.Set(key, encoded); err != nil {
+		return "", err
+	} 
+	return s.Get(key)
 }
 
-func (s *store) Get(key string) (string, bool) {
+func (s *store) Set(key, value string) error {
+	if len(key) == 0 {
+		return ErrEmptyKey
+	}
+	_, ok := s.data[key]
+	if !ok && s.Len() >= s.capacity {
+		return fmt.Errorf("max size reached, capacity is: %d", s.capacity)
+	}
+	s.data[key] = value
+
+	return nil
+}
+
+func (s *store) Get(key string) (string, error) {
+	if len(key) == 0 {
+		return "", ErrEmptyKey
+	}
 	val, ok := s.data[key]
-	return val, ok
+	if !ok {
+		return "", ErrKeyDoesNotExist
+	}
+	return val, nil
 }
 
 func (s *store) Delete(key string) {
 	delete(s.data, key)
+
 }
 
 func (s *store) Len() int {
@@ -47,9 +78,9 @@ func (s *store) Len() int {
 func (s *store) Rename(oldKey, newKey string) error {
 	val, ok := s.data[oldKey]
 	if !ok {
-		return fmt.Errorf("key doesn't exists")
+		return ErrKeyDoesNotExist
 	}
-	
+
 	s.data[newKey] = val
 	delete(s.data, oldKey)
 
