@@ -38,7 +38,7 @@ func (s *store) SetKeyWithEncryption(key, val string) (string, error) {
 	encoded := base64.StdEncoding.EncodeToString([]byte(val))
 	if err := s.Set(key, encoded); err != nil {
 		return "", err
-	} 
+	}
 	return s.Get(key)
 }
 
