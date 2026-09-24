@@ -11,10 +11,19 @@ func main() {
 	log.Println("Hello")
 }
 
-func SetKeyWithEncryption(store store.Store, key, val string) (string, error) {
+func SetKeyEncoded(s store.Store, key, val string) error {
 	encoded := base64.StdEncoding.EncodeToString([]byte(val))
-	if err := store.Set(key, encoded); err != nil {
+	return s.Set(key, encoded)
+}
+
+func GetKeyDecoded(s store.Store, key string) (string, error) {
+	encoded, err := s.Get(key)
+	if err != nil {
 		return "", err
 	}
-	return store.Get(key)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", err
+	}
+	return string(decoded), nil
 }

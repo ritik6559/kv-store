@@ -1,7 +1,6 @@
 package ttl
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/ritik6559/kv-store/internal/store"
@@ -16,6 +15,10 @@ type ttlEntry struct {
 	expiresAt time.Time
 }
 
+func (e ttlEntry) expired(now time.Time) bool {
+	return now.After(e.expiresAt)
+}
+
 func NewTTLStore() *TTLStore {
 	return &TTLStore{
 		data: make(map[string]ttlEntry),
@@ -25,6 +28,9 @@ func NewTTLStore() *TTLStore {
 func (t *TTLStore) Set(key, value string, ttl time.Duration) error {
 	if key == "" {
 		return store.ErrEmptyKey
+	}
+	if ttl <= 0 {
+		return store.ErrInvalidTTL
 	}
 
 	entry := ttlEntry{
@@ -42,10 +48,13 @@ func (t *TTLStore) Get(key string) (string, error) {
 	}
 
 	entry, ok := t.data[key]
-	if !ok || time.Now().After(entry.expiresAt) {
-		// laxy deletion
+	if !ok {
+		return "", store.ErrKeyDoesNotExist
+	}
+	if entry.expired(time.Now()) {
+		// lazy deletion
 		delete(t.data, key)
-		return "", fmt.Errorf("key does not exists")
+		return "", store.ErrKeyDoesNotExist
 	}
 
 	return entry.value, nil
@@ -55,6 +64,13 @@ func (t *TTLStore) Delete(key string) {
 	delete(t.data, key)
 }
 
+// Len returns the number of live keys, removing any expired ones it finds.
 func (t *TTLStore) Len() int {
+	now := time.Now()
+	for key, entry := range t.data {
+		if entry.expired(now) {
+			delete(t.data, key)
+		}
+	}
 	return len(t.data)
 }
