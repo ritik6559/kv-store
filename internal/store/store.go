@@ -12,6 +12,7 @@ var ErrInvalidTTL = errors.New("ttl must be greater than 0")
 type Store interface {
 	Get(key string) (string, error)
 	Set(key, value string) error
+	Incr(key string) (int64, error)
 	Keys() []string
 	Delete(key string)
 	Len() int

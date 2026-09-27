@@ -15,6 +15,7 @@ type MetricsMiddleware struct {
 	getCalls    int
 	getMisses   int
 	setCalls    int
+	incrCalls   int
 	deleteCalls int
 	lenCalls    int
 }
@@ -41,6 +42,11 @@ func (m *MetricsMiddleware) Set(key, value string) error {
 	return m.inner.Set(key, value)
 }
 
+func (m *MetricsMiddleware) Incr(key string) (int64, error) {
+	m.incrCalls++
+	return m.inner.Incr(key)
+}
+
 func (m *MetricsMiddleware) Keys() []string {
 	return m.inner.Keys()
 }
@@ -56,10 +62,11 @@ func (m *MetricsMiddleware) Len() int {
 }
 
 func (m *MetricsMiddleware) Report() {
-	fmt.Printf("Metrics: get_calls=%d get_misses=%d set_calls=%d delete_calls=%d len_calls=%d\n",
+	fmt.Printf("Metrics: get_calls=%d get_misses=%d set_calls=%d incr_calls=%d delete_calls=%d len_calls=%d\n",
 		m.getCalls,
 		m.getMisses,
 		m.setCalls,
+		m.incrCalls,
 		m.deleteCalls,
 		m.lenCalls,
 	)

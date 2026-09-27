@@ -11,13 +11,13 @@ import (
 var _ store.Store = (*LoggingMiddleware)(nil)
 
 type LoggingMiddleware struct {
-	inner   store.Store
+	inner  store.Store
 	logger *slog.Logger
 }
 
 func NewLoggingMiddleware(inner store.Store, logger *slog.Logger) *LoggingMiddleware {
 	return &LoggingMiddleware{
-		inner:   inner,
+		inner:  inner,
 		logger: logger,
 	}
 }
@@ -34,6 +34,13 @@ func (l *LoggingMiddleware) Set(key, value string) error {
 	err := l.inner.Set(key, value)
 	l.log("set", err, "key", key, "took", time.Since(start))
 	return err
+}
+
+func (l *LoggingMiddleware) Incr(key string) (int64, error) {
+	start := time.Now()
+	value, err := l.inner.Incr(key)
+	l.log("incr", err, "key", key, "value", value, "took", time.Since(start))
+	return value, err
 }
 
 func (l *LoggingMiddleware) Keys() []string {
