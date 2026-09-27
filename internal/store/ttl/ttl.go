@@ -1,12 +1,14 @@
 package ttl
 
 import (
+	"sync"
 	"time"
 
 	"github.com/ritik6559/kv-store/internal/store"
 )
 
 type TTLStore struct {
+	mu   sync.Mutex
 	data map[string]ttlEntry
 }
 
@@ -37,6 +39,10 @@ func (t *TTLStore) Set(key, value string, ttl time.Duration) error {
 		value:     value,
 		expiresAt: time.Now().Add(ttl),
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	t.data[key] = entry
 
 	return nil
@@ -46,6 +52,8 @@ func (t *TTLStore) Get(key string) (string, error) {
 	if key == "" {
 		return "", store.ErrEmptyKey
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	entry, ok := t.data[key]
 	if !ok {
@@ -61,11 +69,16 @@ func (t *TTLStore) Get(key string) (string, error) {
 }
 
 func (t *TTLStore) Delete(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	delete(t.data, key)
 }
 
-// Len returns the number of live keys, removing any expired ones it finds.
 func (t *TTLStore) Len() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	now := time.Now()
 	for key, entry := range t.data {
 		if entry.expired(now) {

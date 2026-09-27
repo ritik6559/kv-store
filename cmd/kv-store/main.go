@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -18,12 +19,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := middleware.NewLoggingMiddleware(base, logger.With("store", "kv"))
+	metrics := middleware.NewMetricsMiddleware(base)
+	s := middleware.NewLoggingMiddleware(metrics, logger.With("store", "kv"))
 
 	cmds := []Command{
 		{Op: "INCR", Key: "counter"},
 		{Op: "INCR", Key: "counter"},
+		{Op: "SET", Key: "name", Value: "ritik"},
+		{Op: "INCR", Key: "name"},
+		{Op: "RENAME", Key: "name", Value: "user"},
+		{Op: "POP", Key: "user"},
+		{Op: "GET", Key: "user"},
+		{Op: "DELETE", Key: "counter"},
+		{Op: "LEN"},
 	}
 
-	runCommand(s, cmds)
+	runCommands(s, cmds)
+
+	fmt.Printf("metrics: %+v\n", metrics.Stats())
 }

@@ -2,8 +2,7 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
-	"sync"
+	"sync/atomic"
 
 	"github.com/ritik6559/kv-store/internal/store"
 )
@@ -12,14 +11,28 @@ var _ store.Store = (*MetricsMiddleware)(nil)
 
 type MetricsMiddleware struct {
 	inner store.Store
-	mu    sync.Mutex
 
-	getCalls    int
-	getMisses   int
-	setCalls    int
-	incrCalls   int
-	deleteCalls int
-	lenCalls    int
+	getCalls    atomic.Int64
+	getMisses   atomic.Int64
+	setCalls    atomic.Int64
+	incrCalls   atomic.Int64
+	keysCalls   atomic.Int64
+	deleteCalls atomic.Int64
+	lenCalls    atomic.Int64
+	renameCalls atomic.Int64
+	popCalls    atomic.Int64
+}
+
+type Stats struct {
+	GetCalls    int64
+	GetMisses   int64
+	SetCalls    int64
+	IncrCalls   int64
+	KeysCalls   int64
+	DeleteCalls int64
+	LenCalls    int64
+	RenameCalls int64
+	PopCalls    int64
 }
 
 func NewMetricsMiddleware(inner store.Store) *MetricsMiddleware {
@@ -27,78 +40,59 @@ func NewMetricsMiddleware(inner store.Store) *MetricsMiddleware {
 }
 
 func (m *MetricsMiddleware) Get(key string) (string, error) {
-	m.mu.Lock()
-	m.getCalls++
-	m.mu.Unlock()
-
+	m.getCalls.Add(1)
 	value, err := m.inner.Get(key)
 	if errors.Is(err, store.ErrKeyDoesNotExist) {
-		m.mu.Lock()
-		m.getMisses++
-		m.mu.Unlock()
+		m.getMisses.Add(1)
 	}
 	return value, err
 }
 
-func (m *MetricsMiddleware) GetMisses() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.getMisses
-}
-
 func (m *MetricsMiddleware) Set(key, value string) error {
-	m.mu.Lock()
-	m.setCalls++
-	m.mu.Unlock()
-
+	m.setCalls.Add(1)
 	return m.inner.Set(key, value)
 }
 
 func (m *MetricsMiddleware) Incr(key string) (int64, error) {
-	m.mu.Lock()
-	m.incrCalls++
-	m.mu.Unlock()
-
+	m.incrCalls.Add(1)
 	return m.inner.Incr(key)
 }
 
 func (m *MetricsMiddleware) Keys() []string {
+	m.keysCalls.Add(1)
 	return m.inner.Keys()
 }
 
-func (m *MetricsMiddleware) Delete(key string) {
-	m.mu.Lock()
-	m.deleteCalls++
-	m.mu.Unlock()
-
-	m.inner.Delete(key)
+func (m *MetricsMiddleware) Delete(key string) bool {
+	m.deleteCalls.Add(1)
+	return m.inner.Delete(key)
 }
 
 func (m *MetricsMiddleware) Len() int {
-	m.mu.Lock()
-	m.lenCalls++
-	m.mu.Unlock()
-
+	m.lenCalls.Add(1)
 	return m.inner.Len()
 }
 
-func (m *MetricsMiddleware) Report() {
-	m.mu.Lock()
-	getCalls := m.getCalls
-	getMisses := m.getMisses
-	setCalls := m.setCalls
-	incrCalls := m.incrCalls
-	deleteCalls := m.deleteCalls
-	lenCalls := m.lenCalls
-	m.mu.Unlock()
+func (m *MetricsMiddleware) Rename(oldKey, newKey string) error {
+	m.renameCalls.Add(1)
+	return m.inner.Rename(oldKey, newKey)
+}
 
-	fmt.Printf("Metrics: get_calls=%d get_misses=%d set_calls=%d incr_calls=%d delete_calls=%d len_calls=%d\n",
-		getCalls,
-		getMisses,
-		setCalls,
-		incrCalls,
-		deleteCalls,
-		lenCalls,
-	)
+func (m *MetricsMiddleware) Pop(key string) (string, error) {
+	m.popCalls.Add(1)
+	return m.inner.Pop(key)
+}
+
+func (m *MetricsMiddleware) Stats() Stats {
+	return Stats{
+		GetCalls:    m.getCalls.Load(),
+		GetMisses:   m.getMisses.Load(),
+		SetCalls:    m.setCalls.Load(),
+		IncrCalls:   m.incrCalls.Load(),
+		KeysCalls:   m.keysCalls.Load(),
+		DeleteCalls: m.deleteCalls.Load(),
+		LenCalls:    m.lenCalls.Load(),
+		RenameCalls: m.renameCalls.Load(),
+		PopCalls:    m.popCalls.Load(),
+	}
 }

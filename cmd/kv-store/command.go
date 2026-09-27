@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/ritik6559/kv-store/internal/store"
 )
@@ -11,7 +10,7 @@ import (
 type Command struct {
 	Op    string
 	Key   string
-	Value string
+	Value string // for RENAME this is the new key
 }
 
 func dispatch(s store.Store, command Command) error {
@@ -38,34 +37,33 @@ func dispatch(s store.Store, command Command) error {
 		}
 		return nil
 	case "DELETE":
-		s.Delete(command.Key)
+		if s.Delete(command.Key) {
+			fmt.Println(1)
+		} else {
+			fmt.Println(0)
+		}
 		return nil
 	case "LEN":
 		fmt.Println(s.Len())
+		return nil
+	case "RENAME":
+		return s.Rename(command.Key, command.Value)
+	case "POP":
+		value, err := s.Pop(command.Key)
+		if err != nil {
+			return err
+		}
+		fmt.Println(value)
 		return nil
 	default:
 		return fmt.Errorf("unsupported command: %s", command.Op)
 	}
 }
 
-func runCommand(s store.Store, commands []Command) {
-	var wg sync.WaitGroup
-	errs := make(chan error, len(commands))
-
+func runCommands(s store.Store, commands []Command) {
 	for _, command := range commands {
-		wg.Go(func() {
-			errs <- dispatch(s, command)
-		})
-	}
-
-	go func() {
-		wg.Wait()
-		close(errs)
-	}()
-
-	for err := range errs {
-		if err != nil {
-			fmt.Println(err)
+		if err := dispatch(s, command); err != nil {
+			fmt.Printf("%s %s: %v\n", strings.ToUpper(command.Op), command.Key, err)
 		}
 	}
 }

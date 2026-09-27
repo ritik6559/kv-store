@@ -50,10 +50,11 @@ func (l *LoggingMiddleware) Keys() []string {
 	return keys
 }
 
-func (l *LoggingMiddleware) Delete(key string) {
+func (l *LoggingMiddleware) Delete(key string) bool {
 	start := time.Now()
-	l.inner.Delete(key)
-	l.logger.Debug("delete", "key", key, "took", time.Since(start))
+	existed := l.inner.Delete(key)
+	l.logger.Debug("delete", "key", key, "existed", existed, "took", time.Since(start))
+	return existed
 }
 
 func (l *LoggingMiddleware) Len() int {
@@ -62,11 +63,29 @@ func (l *LoggingMiddleware) Len() int {
 	return n
 }
 
+func (l *LoggingMiddleware) Rename(oldKey, newKey string) error {
+	start := time.Now()
+	err := l.inner.Rename(oldKey, newKey)
+	l.log("rename", err, "old_key", oldKey, "new_key", newKey, "took", time.Since(start))
+	return err
+}
+
+func (l *LoggingMiddleware) Pop(key string) (string, error) {
+	start := time.Now()
+	val, err := l.inner.Pop(key)
+	l.log("pop", err, "key", key, "took", time.Since(start))
+	return val, err
+}
+
 func (l *LoggingMiddleware) log(op string, err error, args ...any) {
 	switch {
 	case err == nil, errors.Is(err, store.ErrKeyDoesNotExist): // OR
 		l.logger.Debug(op, append(args, "err", err)...)
-	case errors.Is(err, store.ErrEmptyKey), errors.Is(err, store.ErrStoreFull):
+	case errors.Is(err, store.ErrEmptyKey),
+		errors.Is(err, store.ErrStoreFull),
+		errors.Is(err, store.ErrKeyAlreadyExists),
+		errors.Is(err, store.ErrNotInteger),
+		errors.Is(err, store.ErrOverflow):
 		l.logger.Warn(op, append(args, "err", err)...)
 	default:
 		l.logger.Error(op, append(args, "err", err)...)
