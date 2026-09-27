@@ -8,7 +8,7 @@ import (
 
 	"github.com/ritik6559/kv-store/internal/store"
 	"github.com/ritik6559/kv-store/internal/store/kv"
-	"github.com/ritik6559/kv-store/internal/store/logging"
+	"github.com/ritik6559/kv-store/internal/store/middleware"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := logging.NewLoggingStore(base, logger.With("store", "kv"))
+	s := middleware.NewLoggingMiddleware(base, logger.With("store", "kv"))
 
 	if err := SetKeyEncoded(s, "name", "ritik"); err != nil {
 		logger.Error("set failed", "err", err)

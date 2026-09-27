@@ -1,4 +1,4 @@
-package logging
+package middleware
 
 import (
 	"errors"
@@ -8,54 +8,54 @@ import (
 	"github.com/ritik6559/kv-store/internal/store"
 )
 
-var _ store.Store = (*LoggingStore)(nil)
+var _ store.Store = (*LoggingMiddleware)(nil)
 
-type LoggingStore struct {
-	next   store.Store
+type LoggingMiddleware struct {
+	inner   store.Store
 	logger *slog.Logger
 }
 
-func NewLoggingStore(next store.Store, logger *slog.Logger) *LoggingStore {
-	return &LoggingStore{
-		next:   next,
+func NewLoggingMiddleware(inner store.Store, logger *slog.Logger) *LoggingMiddleware {
+	return &LoggingMiddleware{
+		inner:   inner,
 		logger: logger,
 	}
 }
 
-func (l *LoggingStore) Get(key string) (string, error) {
+func (l *LoggingMiddleware) Get(key string) (string, error) {
 	start := time.Now()
-	val, err := l.next.Get(key)
+	val, err := l.inner.Get(key)
 	l.log("get", err, "key", key, "took", time.Since(start))
 	return val, err
 }
 
-func (l *LoggingStore) Set(key, value string) error {
+func (l *LoggingMiddleware) Set(key, value string) error {
 	start := time.Now()
-	err := l.next.Set(key, value)
+	err := l.inner.Set(key, value)
 	l.log("set", err, "key", key, "took", time.Since(start))
 	return err
 }
 
-func (l *LoggingStore) Keys() []string {
+func (l *LoggingMiddleware) Keys() []string {
 	start := time.Now()
-	keys := l.next.Keys()
+	keys := l.inner.Keys()
 	l.logger.Debug("keys", "count", len(keys), "took", time.Since(start))
 	return keys
 }
 
-func (l *LoggingStore) Delete(key string) {
+func (l *LoggingMiddleware) Delete(key string) {
 	start := time.Now()
-	l.next.Delete(key)
+	l.inner.Delete(key)
 	l.logger.Debug("delete", "key", key, "took", time.Since(start))
 }
 
-func (l *LoggingStore) Len() int {
-	n := l.next.Len()
+func (l *LoggingMiddleware) Len() int {
+	n := l.inner.Len()
 	l.logger.Debug("len", "count", n)
 	return n
 }
 
-func (l *LoggingStore) log(op string, err error, args ...any) {
+func (l *LoggingMiddleware) log(op string, err error, args ...any) {
 	switch {
 	case err == nil, errors.Is(err, store.ErrKeyDoesNotExist): // OR
 		l.logger.Debug(op, append(args, "err", err)...)
