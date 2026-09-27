@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/ritik6559/kv-store/internal/store/persistence"
 	"github.com/ritik6559/kv-store/internal/store/kv"
 	"github.com/ritik6559/kv-store/internal/store/middleware"
 )
@@ -19,7 +20,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	metrics := middleware.NewMetricsMiddleware(base)
+	persistent, err := persistence.Open("data.aof", base, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := persistent.Close(); err != nil {
+			logger.Error("closing aof", "err", err)
+		}
+	}()
+
+	metrics := middleware.NewMetricsMiddleware(persistent)
 	s := middleware.NewLoggingMiddleware(metrics, logger.With("store", "kv"))
 
 	cmds := []Command{
